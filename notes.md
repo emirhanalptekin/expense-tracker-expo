@@ -1,0 +1,1 @@
+after clicking signup you should redirect to login if it is successful

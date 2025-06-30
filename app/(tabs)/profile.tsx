@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../src/context/AuthContext';
+
 
 export default function ProfileScreen() {
   const menuItems = [
@@ -11,11 +13,18 @@ export default function ProfileScreen() {
     { id: 6, title: 'About', icon: 'information-circle-outline', route: '/about' },
   ];
 
-  const handleLogout = () => {
-    // Handle logout logic here
-    console.log('Logging out...');
-  };
-
+    const { user, logout } = useAuth(); // get logout from context
+  
+    const handleLogout = async () => {
+      try {
+        await logout(); // Firebase will handle the sign-out
+      } catch (error: any) {
+        console.error('Logout failed:', error);
+        Alert.alert('Error', 'Something went wrong while logging out.');
+      }
+    };
+  
+  
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -31,15 +40,17 @@ export default function ProfileScreen() {
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>JD</Text>
+            <Text style={styles.avatarText}>
+              {user?.email?.charAt(0).toUpperCase() ?? 'U'}
+            </Text>
             </View>
             <TouchableOpacity style={styles.editAvatarButton}>
               <Ionicons name="camera" size={16} color="#fff" />
             </TouchableOpacity>
           </View>
           
-          <Text style={styles.userName}>John Doe</Text>
-          <Text style={styles.userEmail}>john.doe@example.com</Text>
+          <Text style={styles.userName}>{user?.email ?? 'Guest'}</Text>
+          <Text style={styles.userEmail}>{user?.email ?? 'No email available'}</Text>          
           
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
