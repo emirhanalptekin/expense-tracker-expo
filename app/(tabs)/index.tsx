@@ -1,21 +1,90 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../src/context/AuthContext';
+import { getUserTransactions } from '../../src/services/transactionService';
 
 export default function HomeScreen() {
-  const [totalBalance] = useState(3257.00);
-  const [income] = useState(2350.00);
-  const [expenses] = useState(950.00);
+  const { user } = useAuth();
+  const [totalBalance, setTotalBalance] = useState(0);
+  const [income, setIncome] = useState(0);
+  const [expenses, setExpenses] = useState(0);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const transactions = [
-    { id: 1, title: 'Money Transfer', amount: -450, time: '12:35 PM', icon: 'person-circle' },
-    { id: 2, title: 'Paypal', amount: 1200, time: '10:20 AM', icon: 'logo-paypal', color: '#00457C' },
-    { id: 3, title: 'Uber', amount: -150, time: '08:40 AM', icon: 'car' },
-    { id: 4, title: 'Bata Store', amount: -200, time: 'Yesterday', icon: 'bag-handle' },
-    { id: 5, title: 'Bank Transfer', amount: -600, time: 'Yesterday', icon: 'business' },
-  ];
+  useEffect(() => {
+    if (!user) return;
+
+    // Subscribe to transactions
+    const unsubscribe = getUserTransactions((userTransactions) => {
+      // Get only the 5 most recent transactions
+      setTransactions(userTransactions.slice(0, 5));
+      
+      // Calculate totals from transactions
+      let income = 0;
+      let expenses = 0;
+      
+      userTransactions.forEach(transaction => {
+        if (transaction.type === 'income') {
+          income += transaction.amount;
+        } else {
+          expenses += transaction.amount;
+        }
+      });
+      
+      setIncome(income);
+      setExpenses(expenses);
+      setTotalBalance(income - expenses);
+      setIsLoading(false);
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user]);
+
+  const getTransactionIcon = (category: string) => {
+    const icons: { [key: string]: string } = {
+      'Shopping': 'cart',
+      'Food': 'restaurant',
+      'Transport': 'car',
+      'Bills': 'receipt',
+      'Healthcare': 'medkit',
+      'Entertainment': 'game-controller',
+      'Salary': 'cash',
+      'Freelance': 'laptop',
+      'Investment': 'trending-up',
+      'Business': 'briefcase',
+      'Gift': 'gift',
+      'Other': 'ellipsis-horizontal'
+    };
+    return icons[category] || 'ellipsis-horizontal';
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#6366F1" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -69,29 +138,36 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {transactions.map((transaction) => (
-            <TouchableOpacity key={transaction.id} style={styles.transactionItem}>
-              <View style={[styles.transactionIcon, { backgroundColor: transaction.color || '#F3F4F6' }]}>
-                <Ionicons 
-                  name={transaction.icon as any} 
-                  size={24} 
-                  color={transaction.color ? '#fff' : '#6B7280'} 
-                />
-              </View>
-              
-              <View style={styles.transactionDetails}>
-                <Text style={styles.transactionTitle}>{transaction.title}</Text>
-                <Text style={styles.transactionTime}>{transaction.time}</Text>
-              </View>
-              
-              <Text style={[
-                styles.transactionAmount,
-                { color: transaction.amount > 0 ? '#10B981' : '#EF4444' }
-              ]}>
-                {transaction.amount > 0 ? '+' : ''} ${Math.abs(transaction.amount)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {transactions.length > 0 ? (
+            transactions.map((transaction) => (
+              <TouchableOpacity key={transaction.id} style={styles.transactionItem}>
+                <View style={[styles.transactionIcon, { backgroundColor: '#F3F4F6' }]}>
+                  <Ionicons 
+                    name={getTransactionIcon(transaction.category) as any} 
+                    size={24} 
+                    color={transaction.type === 'income' ? '#10B981' : '#EF4444'} 
+                  />
+                </View>
+                
+                <View style={styles.transactionDetails}>
+                  <Text style={styles.transactionTitle}>{transaction.title}</Text>
+                  <Text style={styles.transactionTime}>{formatDate(transaction.date)}</Text>
+                </View>
+                
+                <Text style={[
+                  styles.transactionAmount,
+                  { color: transaction.type === 'income' ? '#10B981' : '#EF4444' }
+                ]}>
+                  {transaction.type === 'income' ? '+' : '-'} ${Math.abs(transaction.amount).toFixed(2)}
+                </Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>No transactions yet</Text>
+              <Text style={styles.emptyStateSubtext}>Tap the + button to add your first transaction</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -110,6 +186,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -235,5 +315,19 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
   },
 });

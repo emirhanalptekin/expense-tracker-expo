@@ -1,31 +1,54 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { addTransaction } from '../src/services/transactionService';
 
 export default function AddTransactionScreen() {
   const [transactionType, setTransactionType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
-  const [date, setDate] = useState(new Date().toLocaleDateString());
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const categories = transactionType === 'expense' 
     ? ['Shopping', 'Food', 'Transport', 'Bills', 'Healthcare', 'Entertainment', 'Other']
     : ['Salary', 'Freelance', 'Investment', 'Business', 'Gift', 'Other'];
 
-  const handleSave = () => {
-    // Here you would save the transaction
-    console.log({
-      type: transactionType,
-      amount,
-      title,
-      category,
-      date,
-      notes
-    });
-    router.back();
+  const handleSave = async () => {
+    // Validation
+    if (!title || !amount || !category) {
+      Alert.alert('Error', 'Please fill in all required fields');
+      return;
+    }
+
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await addTransaction({
+        type: transactionType,
+        amount: parsedAmount,
+        title,
+        category,
+        date,
+        notes
+      });
+      
+      Alert.alert('Success', 'Transaction added successfully', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to add transaction');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -137,8 +160,16 @@ export default function AddTransactionScreen() {
         </View>
 
         {/* Save Button */}
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save Transaction</Text>
+        <TouchableOpacity 
+          style={[styles.saveButton, isLoading && styles.saveButtonDisabled]} 
+          onPress={handleSave}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save Transaction</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -277,6 +308,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
     marginBottom: 40,
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
   },
   saveButtonText: {
     fontSize: 16,

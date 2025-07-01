@@ -1,36 +1,146 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAuth } from '../../src/context/AuthContext';
+import { getUserTransactions, Transaction } from '../../src/services/transactionService';
 
 const { width } = Dimensions.get('window');
 
 export default function OverviewScreen() {
+  const { user } = useAuth();
   const [selectedTab, setSelectedTab] = useState<'income' | 'expenses'>('expenses');
   const [selectedPeriod, setSelectedPeriod] = useState('Monthly');
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const totalIncome = 8500;
-  const totalExpenses = 3800;
+  const [totalIncome, setTotalIncome] = useState(0);
+  const [totalExpenses, setTotalExpenses] = useState(0);
 
-  // Sample data for the bar chart
-  const weeklyData = [
-    { week: 'Week 1', income: 2200, expenses: 900 },
-    { week: 'Week 2', income: 1800, expenses: 1100 },
-    { week: 'Week 3', income: 2500, expenses: 800 },
-    { week: 'Week 4', income: 2000, expenses: 1000 },
-  ];
+  useEffect(() => {
+    if (!user) return;
 
-  const expenseCategories = [
-    { id: 1, title: 'Shopping', amount: 1550, date: '30 Apr 2022', icon: 'bag-handle', color: '#EF4444' },
-    { id: 2, title: 'Laptop', amount: 1200, date: '25 Apr 2022', icon: 'laptop-outline', color: '#6366F1' },
-  ];
+    const unsubscribe = getUserTransactions((userTransactions) => {
+      setTransactions(userTransactions);
+      calculateTotals(userTransactions);
+      setIsLoading(false);
+    });
 
-  const incomeCategories = [
-    { id: 1, title: 'Salary', amount: 5000, date: '01 Apr 2022', icon: 'cash-outline', color: '#10B981' },
-    { id: 2, title: 'Freelance', amount: 3500, date: '15 Apr 2022', icon: 'briefcase-outline', color: '#6366F1' },
-  ];
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user]);
 
-  const maxValue = Math.max(...weeklyData.map(d => Math.max(d.income, d.expenses)));
+  const calculateTotals = (allTransactions: Transaction[]) => {
+    let income = 0;
+    let expenses = 0;
+
+    allTransactions.forEach(transaction => {
+      if (transaction.type === 'income') {
+        income += transaction.amount;
+      } else {
+        expenses += transaction.amount;
+      }
+    });
+
+    setTotalIncome(income);
+    setTotalExpenses(expenses);
+  };
+
+  const getWeeklyData = () => {
+    const now = new Date();
+    const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+    
+    // Initialize weekly data
+    const weeks: Array<{
+      week: string;
+      income: number;
+      expenses: number;
+      start: Date;
+      end: Date;
+    }> = [];
+    for (let i = 0; i < 4; i++) {
+      const weekStart = new Date(fourWeeksAgo.getTime() + i * 7 * 24 * 60 * 60 * 1000);
+      const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
+      weeks.push({
+        week: `Week ${i + 1}`,
+        income: 0,
+        expenses: 0,
+        start: weekStart,
+        end: weekEnd
+      });
+    }
+
+    // Calculate totals for each week
+    transactions.forEach(transaction => {
+      const transactionDate = new Date(transaction.date);
+      
+      weeks.forEach(week => {
+        if (transactionDate >= week.start && transactionDate < week.end) {
+          if (transaction.type === 'income') {
+            week.income += transaction.amount;
+          } else {
+            week.expenses += transaction.amount;
+          }
+        }
+      });
+    });
+
+    return weeks;
+  };
+
+  const getCategoryData = () => {
+    const categoryTotals: { [key: string]: number } = {};
+    
+    transactions
+      .filter(t => t.type === selectedTab.slice(0, -1) as 'income' | 'expense')
+      .forEach(transaction => {
+        if (!categoryTotals[transaction.category]) {
+          categoryTotals[transaction.category] = 0;
+        }
+        categoryTotals[transaction.category] += transaction.amount;
+      });
+
+    return Object.entries(categoryTotals)
+      .map(([category, amount]) => ({
+        title: category,
+        amount,
+        icon: getCategoryIcon(category),
+        color: selectedTab === 'income' ? '#10B981' : '#EF4444'
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5); // Top 5 categories
+  };
+
+  const getCategoryIcon = (category: string) => {
+    const icons: { [key: string]: string } = {
+      'Shopping': 'bag-handle',
+      'Food': 'restaurant',
+      'Transport': 'car',
+      'Bills': 'receipt',
+      'Healthcare': 'medkit',
+      'Entertainment': 'game-controller',
+      'Salary': 'cash',
+      'Freelance': 'laptop-outline',
+      'Investment': 'trending-up',
+      'Business': 'briefcase-outline',
+      'Gift': 'gift',
+      'Other': 'ellipsis-horizontal'
+    };
+    return icons[category] || 'ellipsis-horizontal';
+  };
+
+  const weeklyData = getWeeklyData();
+  const maxValue = Math.max(...weeklyData.map(d => Math.max(d.income, d.expenses)), 1);
   const chartHeight = 180;
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#6366F1" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -73,7 +183,7 @@ export default function OverviewScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.dateRange}>Apr 01 - Apr 30</Text>
+          <Text style={styles.dateRange}>Last 4 Weeks</Text>
 
           {/* Bar Chart */}
           <View style={styles.chartContainer}>
@@ -85,14 +195,14 @@ export default function OverviewScreen() {
                       style={[
                         styles.bar,
                         styles.incomeBar,
-                        { height: (data.income / maxValue) * chartHeight }
+                        { height: maxValue > 0 ? (data.income / maxValue) * chartHeight : 0 }
                       ]} 
                     />
                     <View 
                       style={[
                         styles.bar,
                         styles.expenseBar,
-                        { height: (data.expenses / maxValue) * chartHeight }
+                        { height: maxValue > 0 ? (data.expenses / maxValue) * chartHeight : 0 }
                       ]} 
                     />
                   </View>
@@ -132,26 +242,32 @@ export default function OverviewScreen() {
 
         {/* Categories List */}
         <View style={styles.section}>
-          {(selectedTab === 'expenses' ? expenseCategories : incomeCategories).map((category) => (
-            <TouchableOpacity key={category.id} style={styles.categoryItem}>
-              <View style={[styles.categoryIcon, { backgroundColor: category.color + '20' }]}>
-                <Ionicons 
-                  name={category.icon as any} 
-                  size={24} 
-                  color={category.color} 
-                />
-              </View>
-              
-              <View style={styles.categoryDetails}>
-                <Text style={styles.categoryTitle}>{category.title}</Text>
-                <Text style={styles.categoryDate}>{category.date}</Text>
-              </View>
-              
-              <Text style={[styles.categoryAmount, { color: category.color }]}>
-                {selectedTab === 'expenses' ? '-' : '+'} ${category.amount}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {getCategoryData().length > 0 ? (
+            getCategoryData().map((category, index) => (
+              <TouchableOpacity key={index} style={styles.categoryItem}>
+                <View style={[styles.categoryIcon, { backgroundColor: category.color + '20' }]}>
+                  <Ionicons 
+                    name={category.icon as any} 
+                    size={24} 
+                    color={category.color} 
+                  />
+                </View>
+                
+                <View style={styles.categoryDetails}>
+                  <Text style={styles.categoryTitle}>{category.title}</Text>
+                  <Text style={styles.categoryDate}>
+                    {transactions.filter(t => t.category === category.title && t.type === selectedTab.slice(0, -1)).length} transactions
+                  </Text>
+                </View>
+                
+                <Text style={[styles.categoryAmount, { color: category.color }]}>
+                  ${category.amount.toFixed(2)}
+                </Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <Text style={styles.emptyText}>No {selectedTab} data available</Text>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -162,6 +278,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -358,5 +478,10 @@ const styles = StyleSheet.create({
   categoryAmount: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#6B7280',
+    marginTop: 20,
   },
 });

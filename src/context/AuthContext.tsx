@@ -50,7 +50,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date().toISOString(),
         totalIncome: 0,
         totalExpenses: 0,
-        balance: 0
+        balance: 0,
+        totalTransactions: 0
       });
     } catch (error) {
       console.error('Error signing up:', error);

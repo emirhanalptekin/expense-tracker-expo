@@ -1,9 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../src/context/AuthContext';
-
+import { getUserStats } from '../../src/services/transactionService';
 
 export default function ProfileScreen() {
+  const { logout, user } = useAuth();
+  const [stats, setStats] = useState({ totalTransactions: 0, totalSaved: 0 });
+  
+  useEffect(() => {
+    if (user) {
+      loadUserStats();
+    }
+  }, [user]);
+
+  const loadUserStats = async () => {
+    if (!user) return;
+    const userStats = await getUserStats(user.uid);
+    if (userStats) {
+      setStats({
+        totalTransactions: userStats.totalTransactions || 0,
+        totalSaved: userStats.balance || 0
+      });
+    }
+  };
+
   const menuItems = [
     { id: 1, title: 'Account Settings', icon: 'settings-outline', route: '/settings' },
     { id: 2, title: 'Export Data', icon: 'download-outline', route: '/export' },
@@ -13,18 +34,19 @@ export default function ProfileScreen() {
     { id: 6, title: 'About', icon: 'information-circle-outline', route: '/about' },
   ];
 
-    const { user, logout } = useAuth(); // get logout from context
-  
-    const handleLogout = async () => {
-      try {
-        await logout(); // Firebase will handle the sign-out
-      } catch (error: any) {
-        console.error('Logout failed:', error);
-        Alert.alert('Error', 'Something went wrong while logging out.');
-      }
-    };
-  
-  
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
+
+  const getInitials = (name: string | null) => {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -40,17 +62,15 @@ export default function ProfileScreen() {
         <View style={styles.profileSection}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.email?.charAt(0).toUpperCase() ?? 'U'}
-            </Text>
+              <Text style={styles.avatarText}>{getInitials(user?.displayName || null)}</Text>
             </View>
             <TouchableOpacity style={styles.editAvatarButton}>
               <Ionicons name="camera" size={16} color="#fff" />
             </TouchableOpacity>
           </View>
           
-          <Text style={styles.userName}>{user?.email ?? 'Guest'}</Text>
-          <Text style={styles.userEmail}>{user?.email ?? 'No email available'}</Text>          
+          <Text style={styles.userName}>{user?.displayName || 'User'}</Text>
+          <Text style={styles.userEmail}>{user?.email}</Text>
           
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
@@ -59,13 +79,13 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>324</Text>
+              <Text style={styles.statValue}>{stats.totalTransactions}</Text>
               <Text style={styles.statLabel}>Transactions</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>$2.5k</Text>
-              <Text style={styles.statLabel}>Saved</Text>
+              <Text style={styles.statValue}>${(stats.totalSaved / 1000).toFixed(1)}k</Text>
+              <Text style={styles.statLabel}>Balance</Text>
             </View>
           </View>
         </View>
