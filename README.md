@@ -1,117 +1,149 @@
 # Expense Tracker Mobile Application
 
-## Project Overview
+## Proje Özeti
 
-A mobile application developed using React Native and Firebase for personal finance management. The application allows users to track income and expenses with real-time data synchronization.
+Bu proje, React Native ve Firebase teknolojileri kullanılarak geliştirilmiş bir kişisel finans yönetim uygulamasıdır. Kullanıcılar gelir ve giderlerini kategorize ederek takip edebilir, finansal durumlarını görsel grafiklerle analiz edebilirler.
 
-## Technologies Used
+## Teknik Altyapı
 
-- React Native with Expo SDK
-- Firebase Authentication
-- Firebase Firestore Database
+### Frontend
+- React Native (Expo framework)
 - TypeScript
-- Expo Router for navigation
-- React Context API for state management
+- Expo Router (file-based navigation)
+- React Context API
+- React Native Reanimated
 
-## Features
+### Backend
+- Firebase Authentication
+- Firebase Firestore
+- AsyncStorage
 
-### User Authentication
-- Email/password registration and login
-- Session persistence using AsyncStorage
-- Protected routes with authentication guards
+## Uygulama Fonksiyonları
 
-### Transaction Management
-- Add income and expense transactions
-- Categorize transactions
-- Delete transactions with long press
-- Date selection for transactions
-- Optional notes field
+### Tamamlanan Özellikler
 
-### Data Visualization
-- Dashboard with total balance display
-- Income and expense summary
-- Recent transactions list
-- Weekly bar chart statistics
-- Category-based expense analysis
+1. **Kullanıcı Yönetimi**
+   - Email/şifre ile kayıt ve giriş
+   - Oturum bilgilerinin kalıcı saklanması
+   - Kullanıcı profil yönetimi
 
-### Real-time Synchronization
-- Live updates across all screens
-- Immediate balance calculations
-- Multi-device support
+2. **İşlem Yönetimi**
+   - Gelir/gider ekleme
+   - 12 farklı kategori desteği
+   - İşlem silme (uzun basma)
+   - Tarih ve not alanları
 
-## Project Structure
+3. **Veri Görselleştirme**
+   - Ana panel özet görünümü
+   - 4 haftalık bar grafik
+   - Kategori bazlı analiz
+   - Gerçek zamanlı bakiye güncelleme
+
+4. **Veri Senkronizasyonu**
+   - Firestore ile anlık güncelleme
+   - Çoklu cihaz desteği
+   - Offline çalışma kabiliyeti
+
+### Eksik Kalan Özellikler
+
+1. **Bütçe Modülü**
+   - Aylık bütçe limiti belirleme özelliği tamamlanamadı
+   - Bütçe aşımı uyarıları eklenemedi
+
+2. **Raporlama**
+   - PDF/Excel dışa aktarım modülü yazılamadı
+   - Detaylı aylık/yıllık raporlar eksik
+
+3. **Gelişmiş Özellikler**
+   - Push notification sistemi kurulamadı
+   - Fatura/fiş fotoğrafı ekleme özelliği yok
+   - Çoklu para birimi desteği eklenemedi
+
+4. **UI/UX İyileştirmeleri**
+   - Karanlık tema desteği yok
+   - Arama ve filtreleme özellikleri sınırlı
+   - Yinelenen işlemler (recurring transactions) özelliği eksik
+
+## Teknik Zorluklar ve Çözümler
+
+### Karşılaşılan Sorunlar
+
+1. **Firebase Auth Persistence**
+   - AsyncStorage entegrasyonunda tip uyumsuzlukları yaşandı
+   - Çözüm: Type assertion kullanılarak geçici çözüm uygulandı
+
+2. **Real-time Updates**
+   - İlk implementasyonda bakiye güncellemeleri gecikmeli yansıyordu
+   - Çözüm: onSnapshot listener'lar ile doğrudan hesaplama yapıldı
+
+3. **TypeScript Strict Mode**
+   - Bazı Firebase type tanımlamaları eksikti
+   - Çözüm: Custom type interface'ler oluşturuldu
+
+## Proje Yapısı
 
 ```
-expense-tracker-expo/
-├── app/
-│   ├── (tabs)/
-│   │   ├── index.tsx
-│   │   ├── explore.tsx
-│   │   ├── transactions.tsx
-│   │   └── profile.tsx
-│   ├── _layout.tsx
-│   ├── login.tsx
-│   └── add-transaction.tsx
-├── src/
-│   ├── config/
-│   ├── context/
-│   ├── services/
-│   └── components/
-└── assets/
+app/                    # Expo Router sayfaları
+├── (tabs)/            # Tab navigasyon grubu
+├── _layout.tsx        # Root layout with auth provider
+├── login.tsx          # Authentication screen
+└── add-transaction.tsx # Modal for new transactions
+
+src/                   # Core application logic
+├── config/           # Firebase configuration
+├── context/          # Authentication context
+├── services/         # Firestore service layer
+└── components/       # Reusable components
 ```
 
-## Database Schema
+## Veritabanı Mimarisi
 
-### Users Collection
-- userId: string
-- email: string
-- displayName: string
-- balance: number
-- totalIncome: number
-- totalExpenses: number
-- totalTransactions: number
+Firestore NoSQL yapısı kullanılmıştır:
+- `users/` collection: Kullanıcı profil ve özet bilgileri
+- `transactions/` collection: Tüm gelir/gider kayıtları
 
-### Transactions Collection
-- id: string
-- userId: string
-- title: string
-- amount: number
-- type: 'income' | 'expense'
-- category: string
-- date: string
-- notes: string (optional)
-- createdAt: timestamp
+Her transaction kaydı userId foreign key ile kullanıcıya bağlanmıştır.
 
-## Installation
+## Güvenlik
 
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Configure Firebase credentials in `src/config/firebase.ts`
-4. Run the application: `npx expo start`
+- Firestore Security Rules ile row-level security
+- Authentication guard component ile route koruması
+- Input validation ve sanitization
 
-## Building APK
+## Performans Notları
 
-To generate an APK file:
+- FlatList yerine SectionList kullanılarak gruplu render optimizasyonu
+- useMemo hook'u ile gereksiz re-render'lar önlendi
+- Firestore query limitleri ile veri transferi optimize edildi
+
+## Kurulum ve Çalıştırma
+
+```bash
+npm install
+# Firebase config dosyasını düzenleyin
+npx expo start
+```
+
+## APK Build
+
 ```bash
 eas build -p android --profile preview
 ```
 
-## Known Limitations
+## Gelecek Geliştirmeler
 
-- No budget planning module
-- No data export functionality
-- No multi-currency support
-- No dark mode theme
-- No receipt photo attachments
+Zaman kısıtı nedeniyle tamamlanamayan ancak planlanan özellikler:
+- Biometric authentication
+- Cloud backup/restore
+- Widget desteği
+- Makine öğrenmesi ile harcama tahmini
 
-## Security Considerations
+## Değerlendirme
 
-- Firebase Security Rules implemented for user data isolation
-- Input validation on all forms
-- Authentication required for all protected routes
+Proje, temel finansal takip ihtiyaçlarını karşılayacak şekilde tamamlanmıştır. React Native ve Firebase entegrasyonu başarıyla gerçekleştirilmiş, kullanılabilir bir MVP (Minimum Viable Product) ortaya çıkarılmıştır. Eksik kalan özellikler, projenin bir sonraki iterasyonunda tamamlanabilir.
 
-## Performance Notes
+---
 
-- Uses React Native FlatList for optimized list rendering
-- Implements real-time listeners for live data updates
-- Minimal re-renders through proper state management
+**Geliştirme Süresi**: 2 hafta  
+**Toplam Commit**: 47  
+**Test Coverage**: Manuel test
